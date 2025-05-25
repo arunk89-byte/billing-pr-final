@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { User, Mail, FileText, Hash, DollarSign, Trash2 } from 'lucide-react';
+import { User, Mail, FileText, Hash, DollarSign, Trash2, Droplet } from 'lucide-react';
 import { useBilling } from '../../context/BillingContext';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -251,6 +251,49 @@ const CustomerList: React.FC = () => {
                           <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
                         </svg>
                         <span>Meter Number: <span className="font-medium">{customer.meterNumber}</span></span>
+                      </div>
+                      <div className="mt-2 flex items-center text-sm text-gray-500 sm:mt-0 ml-6">
+                        <Droplet className="flex-shrink-0 mr-1.5 h-4 w-4 text-gray-400" />
+                        <span>Previous Reading: </span>
+                        <div className="flex items-center">
+                          <input
+                            type="number"
+                            value={customer.previousReading || 0}
+                            onChange={(e) => {
+                              // Update the customer in state immediately for UI responsiveness
+                              setCustomers(prev => prev.map(c => 
+                                c._id === customer._id ? { ...c, previousReading: parseInt(e.target.value) } : c
+                              ));
+                            }}
+                            className="ml-2 w-24 px-2 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
+                          />
+                          <button
+                            onClick={async () => {
+                              try {
+                                const response = await fetch(`http://localhost:5000/api/admin/customers/${customer._id}/reading`, {
+                                  method: 'PATCH',
+                                  headers: {
+                                    'Authorization': token.startsWith('Bearer ') ? token : `Bearer ${token}`,
+                                    'Content-Type': 'application/json'
+                                  },
+                                  body: JSON.stringify({ previousReading: customer.previousReading })
+                                });
+
+                                if (!response.ok) {
+                                  throw new Error('Failed to update reading');
+                                }
+
+                                toast.success('Previous reading updated successfully');
+                              } catch (err) {
+                                console.error('Error updating reading:', err);
+                                toast.error('Failed to update previous reading');
+                              }
+                            }}
+                            className="ml-2 px-3 py-1 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                          >
+                            Update
+                          </button>
+                        </div>
                       </div>
                     </div>
                     

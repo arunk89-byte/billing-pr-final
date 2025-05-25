@@ -34,6 +34,10 @@ const userSchema = new mongoose.Schema({
     required: true,
     unique: true
   },
+  previousReading: {
+    type: Number,
+    default: 0
+  },
   address: {
     type: String
   },

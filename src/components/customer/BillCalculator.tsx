@@ -5,7 +5,7 @@ import { Bill } from '../../data/mockData';
 import { useAuth } from '../../context/AuthContext';
 
 const BillCalculator: React.FC = () => {
-  const { currentUser } = useAuth();
+  const { currentUser, token } = useAuth();
   const [previousReading, setPreviousReading] = useState<string>('');
   const [currentReading, setCurrentReading] = useState<string>('');
   const [calculatedBill, setCalculatedBill] = useState<Bill | null>(null);
@@ -14,7 +14,7 @@ const BillCalculator: React.FC = () => {
   
   const tariff = getCurrentTariff();
 
-  // Get the last reading from customer's bills
+  // Get the last reading from customer's bills or stored previous reading
   useEffect(() => {
     const customerBills = getCustomerBills();
     if (customerBills.length > 0) {
@@ -22,8 +22,11 @@ const BillCalculator: React.FC = () => {
       const sortedBills = customerBills.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
       const lastBill = sortedBills[0];
       setPreviousReading(lastBill.currentReading.toString());
+    } else if (currentUser && currentUser.previousReading !== undefined) {
+      // If no bills exist, use the stored previous reading
+      setPreviousReading(currentUser.previousReading.toString());
     }
-  }, [getCustomerBills]);
+  }, [getCustomerBills, currentUser]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,7 +56,20 @@ const BillCalculator: React.FC = () => {
     }
     
     const bill = calculateBill(currReading, prevReading);
-    setCalculatedBill(bill);
+    if (bill) {
+      // Update the previous reading for next time
+      fetch(`http://localhost:5000/api/admin/customers/${currentUser._id}/reading`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': token.startsWith('Bearer ') ? token : `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ previousReading: currReading })
+      }).catch(err => {
+        console.error('Error updating previous reading:', err);
+      });
+      setCalculatedBill(bill);
+    }
   };
 
   return (

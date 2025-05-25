@@ -52,4 +52,30 @@ router.delete('/customers/delete', protect, isAdmin, async (req, res) => {
   }
 });
 
+// @route   PATCH /api/admin/customers/:id/reading
+// @desc    Update customer's previous meter reading
+// @access  Admin only
+router.patch('/customers/:id/reading', protect, isAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { previousReading } = req.body;
+
+    if (previousReading < 0) {
+      return res.status(400).json({ message: 'Previous reading cannot be negative' });
+    }
+
+    const customer = await User.findById(id);
+    if (!customer) {
+      return res.status(404).json({ message: 'Customer not found' });
+    }
+
+    customer.previousReading = previousReading;
+    await customer.save();
+
+    res.json({ message: 'Previous reading updated successfully', customer });
+  } catch (error: any) {
+    res.status(500).json({ message: error.message || 'Failed to update previous reading' });
+  }
+});
+
 export default router; 
