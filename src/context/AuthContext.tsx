@@ -44,10 +44,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const handleAuthResponse = (response: AuthResponse) => {
     setCurrentUser(response.user);
-    setToken(response.token);
+    // Ensure token has Bearer prefix
+    const authToken = response.token.startsWith('Bearer ') ? response.token : `Bearer ${response.token}`;
+    setToken(authToken);
     setIsLoggedIn(true);
     localStorage.setItem('user', JSON.stringify(response.user));
-    localStorage.setItem('token', response.token);
+    localStorage.setItem('token', authToken);
   };
 
   const login = async (email: string, password: string, role: 'customer' | 'admin' = 'customer'): Promise<boolean> => {

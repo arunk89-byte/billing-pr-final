@@ -16,30 +16,7 @@ const ADMIN_PASSWORD = 'admin@123';
 // @access  Public
 router.post('/register', async (req, res) => {
   try {
-    const { 
-      name, 
-      email, 
-      password, 
-      username,
-      rrNumber,
-      meterNumber,
-      address, 
-      phone, 
-      role 
-    } = req.body;
-    
-    const result = await registerUser({
-      name,
-      email,
-      password,
-      username,
-      rrNumber,
-      meterNumber,
-      address,
-      phone,
-      role
-    });
-
+    const result = await registerUser(req.body);
     res.status(201).json(result);
   } catch (error: any) {
     res.status(400).json({ message: error.message });
@@ -52,10 +29,12 @@ router.post('/register', async (req, res) => {
 router.post('/login', async (req, res) => {
   try {
     const { email, password, role } = req.body;
+    console.log('Login attempt:', { email, role });
 
     // Admin login
     if (role === 'admin') {
       if (email === ADMIN_EMAIL && password === ADMIN_PASSWORD) {
+        console.log('Admin login successful');
         const adminUser = {
           _id: 'admin-1',
           name: 'Administrator',
@@ -72,23 +51,28 @@ router.post('/login', async (req, res) => {
           { expiresIn: '7d' }
         );
 
+        console.log('Generated admin token:', token.substring(0, 20) + '...');
         return res.json({
           user: adminUser,
           token: `Bearer ${token}`
         });
       } else {
+        console.log('Admin login failed');
         return res.status(401).json({ message: 'Invalid admin credentials' });
       }
     }
 
     // Regular user login
+    console.log('Attempting regular user login');
     const user = await User.findOne({ email });
     if (!user) {
+      console.log('User not found:', email);
       return res.status(401).json({ message: 'Invalid email or password' });
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
+      console.log('Password mismatch for user:', email);
       return res.status(401).json({ message: 'Invalid email or password' });
     }
 
@@ -97,6 +81,12 @@ router.post('/login', async (req, res) => {
       config.jwt.secret,
       { expiresIn: '7d' }
     );
+
+    console.log('Generated user token:', token.substring(0, 20) + '...');
+    console.log('User login successful:', {
+      userId: user._id,
+      role: user.role
+    });
 
     res.json({
       user: {
@@ -113,6 +103,7 @@ router.post('/login', async (req, res) => {
       token: `Bearer ${token}`
     });
   } catch (error: any) {
+    console.error('Login error:', error);
     res.status(500).json({ message: error.message || 'Login failed' });
   }
 });

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Calculator, Check, AlertCircle } from 'lucide-react';
+import { Calculator, Check, AlertCircle, Loader2 } from 'lucide-react';
 import { useBilling } from '../../context/BillingContext';
 import { Bill } from '../../data/mockData';
 import { useAuth } from '../../context/AuthContext';
@@ -10,23 +10,96 @@ const BillCalculator: React.FC = () => {
   const [currentReading, setCurrentReading] = useState<string>('');
   const [calculatedBill, setCalculatedBill] = useState<Bill | null>(null);
   const [error, setError] = useState<string>('');
-  const { calculateBill, getCurrentTariff, getCustomerBills } = useBilling();
+  const [isLoading, setIsLoading] = useState(true);
+  const { calculateBill, getCurrentTariff } = useBilling();
   
   const tariff = getCurrentTariff();
 
-  // Get the last reading from customer's bills or stored previous reading
-  useEffect(() => {
-    const customerBills = getCustomerBills();
-    if (customerBills.length > 0) {
-      // Sort bills by date in descending order and get the most recent one
-      const sortedBills = customerBills.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-      const lastBill = sortedBills[0];
-      setPreviousReading(lastBill.currentReading.toString());
-    } else if (currentUser && currentUser.previousReading !== undefined) {
-      // If no bills exist, use the stored previous reading
-      setPreviousReading(currentUser.previousReading.toString());
+  const fetchPreviousReading = async () => {
+    try {
+      if (!currentUser?._id || !token) {
+        console.log('Missing auth data:', { userId: currentUser?._id, hasToken: !!token });
+        setError('You must be logged in to view your meter readings');
+        setIsLoading(false);
+        return;
+      }
+
+      console.log('Auth state:', {
+        userId: currentUser._id,
+        userRole: currentUser.role,
+        tokenExists: !!token,
+        tokenStartsWith: token?.substring(0, 20) + '...',
+        storedToken: localStorage.getItem('token')?.substring(0, 20) + '...'
+      });
+
+      // Ensure token has Bearer prefix
+      const authToken = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
+      
+      console.log('Making request with:', {
+        url: `http://localhost:5000/api/customers/${currentUser._id}`,
+        authHeader: authToken.substring(0, 20) + '...'
+      });
+
+      const response = await fetch(`http://localhost:5000/api/customers/${currentUser._id}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': authToken,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      console.log('Response:', {
+        status: response.status,
+        statusText: response.statusText,
+        headers: Object.fromEntries(response.headers.entries())
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          const errorText = await response.text();
+          console.error('Authentication failed:', {
+            status: response.status,
+            error: errorText,
+            headers: Object.fromEntries(response.headers.entries())
+          });
+          setError('Your session has expired. Please log in again.');
+          return;
+        }
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.message || 'Failed to fetch customer data');
+      }
+
+      const data = await response.json();
+      console.log('Received customer data:', data);
+      setPreviousReading(data.previousReading?.toString() || '0');
+      setError(''); // Clear any previous errors
+      setIsLoading(false);
+    } catch (err: any) {
+      console.error('Error fetching previous reading:', err);
+      setError(err.message || 'Failed to load your previous reading. Please try again later.');
+      setIsLoading(false);
     }
-  }, [getCustomerBills, currentUser]);
+  };
+
+  // Fetch previous reading when component mounts or when auth state changes
+  useEffect(() => {
+    console.log('BillCalculator mounted/updated:', {
+      hasUser: !!currentUser,
+      hasToken: !!token,
+      isLoading
+    });
+
+    if (currentUser && token) {
+      fetchPreviousReading();
+      
+      // Poll for updates every 30 seconds
+      const intervalId = setInterval(fetchPreviousReading, 30000);
+      return () => clearInterval(intervalId);
+    } else {
+      setError('Please log in to view your meter readings');
+      setIsLoading(false);
+    }
+  }, [currentUser, token]); // Add dependencies to useEffect
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,12 +129,12 @@ const BillCalculator: React.FC = () => {
     }
     
     const bill = calculateBill(currReading, prevReading);
-    if (bill) {
+    if (bill && currentUser?._id && token) {
       // Update the previous reading for next time
       fetch(`http://localhost:5000/api/admin/customers/${currentUser._id}/reading`, {
         method: 'PATCH',
         headers: {
-          'Authorization': token.startsWith('Bearer ') ? token : `Bearer ${token}`,
+          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({ previousReading: currReading })
@@ -101,15 +174,25 @@ const BillCalculator: React.FC = () => {
                   <label htmlFor="previousReading" className="block text-sm font-medium text-gray-700 mb-1">
                     Previous Month's Meter Reading
                   </label>
-                  <input
-                    type="number"
-                    id="previousReading"
-                    value={previousReading}
-                    onChange={(e) => setPreviousReading(e.target.value)}
-                    className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md p-2 border"
-                    placeholder="Enter previous month's meter reading"
-                    min="0"
-                  />
+                  <div className="relative">
+                    <input
+                      type="number"
+                      id="previousReading"
+                      value={isLoading ? '' : previousReading}
+                      className="shadow-sm bg-gray-50 focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md p-2 border text-gray-900 font-medium"
+                      placeholder={isLoading ? 'Loading previous reading...' : 'No previous reading available'}
+                      readOnly
+                      disabled
+                    />
+                    {isLoading && (
+                      <div className="absolute right-3 top-2">
+                        <Loader2 className="h-5 w-5 animate-spin text-blue-500" />
+                      </div>
+                    )}
+                  </div>
+                  <p className="mt-1 text-sm text-gray-500">
+                    This value is set by the admin and cannot be modified
+                  </p>
                 </div>
 
                 <div>
@@ -123,7 +206,8 @@ const BillCalculator: React.FC = () => {
                     onChange={(e) => setCurrentReading(e.target.value)}
                     className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md p-2 border"
                     placeholder="Enter current month's meter reading"
-                    min="0"
+                    min={previousReading ? parseInt(previousReading, 10) : 0}
+                    disabled={isLoading}
                   />
                 </div>
               </div>
@@ -137,9 +221,17 @@ const BillCalculator: React.FC = () => {
               
               <button
                 type="submit"
-                className="mt-6 w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                className="mt-6 w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={isLoading}
               >
-                Calculate Bill
+                {isLoading ? (
+                  <>
+                    <Loader2 className="h-5 w-5 animate-spin mr-2" />
+                    Loading...
+                  </>
+                ) : (
+                  'Calculate Bill'
+                )}
               </button>
             </form>
             

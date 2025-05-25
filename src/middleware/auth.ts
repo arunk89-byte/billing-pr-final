@@ -4,7 +4,11 @@ import { User } from '../../lib/db';
 import config from '../config';
 
 interface AuthRequest extends Request {
-  user?: any;
+  user?: {
+    _id: string;
+    email?: string;
+    role?: string;
+  };
 }
 
 export const protect = async (req: AuthRequest, res: Response, next: NextFunction) => {
@@ -13,7 +17,8 @@ export const protect = async (req: AuthRequest, res: Response, next: NextFunctio
     let token;
 
     if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
-      token = req.headers.authorization.split(' ')[1];
+      // Remove 'Bearer ' prefix if it exists
+      token = req.headers.authorization.replace('Bearer ', '');
       console.log('Extracted token:', token);
     }
 
@@ -28,36 +33,40 @@ export const protect = async (req: AuthRequest, res: Response, next: NextFunctio
       const decoded = jwt.verify(token, config.jwt.secret) as { _id: string; email: string; role: string };
       console.log('Decoded token:', decoded);
 
-      // For admin token (hardcoded admin)
-      if (decoded._id === 'admin-1' && decoded.role === 'admin') {
+      // For admin token
+      if (decoded.role === 'admin') {
         console.log('Admin user authenticated');
         req.user = {
-          _id: 'admin-1',
-          email: 'admin@waterbill.com',
+          _id: decoded._id,
+          email: decoded.email,
           role: 'admin'
         };
-        next();
-        return;
+        return next();
       }
 
       // For regular users, get user from database
       console.log('Looking up user in database:', decoded._id);
       const user = await User.findById(decoded._id).select('-password');
+      
       if (!user) {
         console.log('No user found in database');
         return res.status(401).json({ message: 'User not found' });
       }
       
       console.log('User found:', user);
-      req.user = user;
+      req.user = {
+        _id: user._id.toString(),
+        email: user.email,
+        role: user.role
+      };
       next();
     } catch (error) {
       console.error('Token verification error:', error);
-      res.status(401).json({ message: 'Not authorized, token failed' });
+      return res.status(401).json({ message: 'Not authorized, token failed' });
     }
   } catch (error) {
     console.error('Auth middleware error:', error);
-    res.status(500).json({ message: 'Server error' });
+    return res.status(500).json({ message: 'Server error' });
   }
 };
 
