@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { AlertCircle, Key, RefreshCw } from 'lucide-react';
+import { AlertCircle, Key, RefreshCw, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { toast } from 'react-toastify';
 
@@ -14,6 +14,7 @@ const LoginPage: React.FC = () => {
   
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [userType, setUserType] = useState<'customer' | 'admin'>('customer');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -144,16 +145,27 @@ const LoginPage: React.FC = () => {
               <label htmlFor="password" className="block text-sm font-medium text-gray-700">
                 Password
               </label>
-              <div className="mt-1">
+              <div className="mt-1 relative">
                 <input
                   id="password"
                   name="password"
-                  type="password"
+                  type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   disabled={isLoading}
-                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm pr-10"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-500"
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-5 w-5" aria-hidden="true" />
+                  ) : (
+                    <Eye className="h-5 w-5" aria-hidden="true" />
+                  )}
+                </button>
               </div>
             </div>
 
@@ -255,11 +267,7 @@ const LoginPage: React.FC = () => {
                 </div>
               </div>
               <div className="mt-4 p-3 bg-blue-50 rounded-md text-sm text-blue-700">
-                <p className="font-medium mb-2">Use these admin credentials:</p>
-                <div className="bg-white p-2 rounded border border-blue-200">
-                  <p className="mb-1">Email: <span className="font-mono bg-gray-100 px-1 py-0.5 rounded">admin@waterbill.com</span></p>
-                  <p>Password: <span className="font-mono bg-gray-100 px-1 py-0.5 rounded">admin@123</span></p>
-                </div>
+                <p>Please contact your system administrator for login credentials.</p>
               </div>
             </div>
           )}

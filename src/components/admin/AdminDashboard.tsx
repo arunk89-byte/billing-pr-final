@@ -1,77 +1,64 @@
 import React, { useState, useEffect } from 'react';
-import { Users, DollarSign, AreaChart, FileText, Trash2 } from 'lucide-react';
+import { Users, DollarSign, AreaChart, FileText } from 'lucide-react';
 import { useBilling } from '../../context/BillingContext';
 import { useAuth } from '../../context/AuthContext';
-import { customers } from '../../data/mockData';
 
 const AdminDashboard: React.FC = () => {
   const { getAllBills, getPaidBills, clearAllBills } = useBilling();
   const { token } = useAuth();
   const [customers, setCustomers] = useState<any[]>([]);
   
+  const allBills = getAllBills();
+  const paidBills = getPaidBills();
+  const totalRevenue = paidBills.reduce((total, bill) => total + bill.amount, 0);
+  const totalConsumption = allBills.reduce((total, bill) => total + bill.unitsConsumed, 0);
+
+  // Fetch customers from API
   useEffect(() => {
     const fetchCustomers = async () => {
       try {
         const response = await fetch('http://localhost:5000/api/admin/customers', {
           headers: {
-            'Authorization': token.startsWith('Bearer ') ? token : `Bearer ${token}`,
+            'Authorization': token?.startsWith('Bearer ') ? token : `Bearer ${token}`,
             'Content-Type': 'application/json'
           }
         });
-        
+
         if (!response.ok) {
           throw new Error('Failed to fetch customers');
         }
-        
+
         const data = await response.json();
         setCustomers(data);
-      } catch (err) {
-        console.error('Error fetching customers:', err);
+      } catch (error) {
+        console.error('Error fetching customers:', error);
       }
     };
-    
+
     fetchCustomers();
   }, [token]);
-  
-  const allBills = getAllBills();
-  const paidBills = getPaidBills();
-  const totalRevenue = paidBills.reduce((total, bill) => total + bill.amount, 0);
-  const totalConsumption = allBills.reduce((total, bill) => total + bill.unitsConsumed, 0);
   
   // Recent payments (last 5) with customer information
   const recentPayments = paidBills
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
     .slice(0, 5)
     .map(bill => {
-      const customer = customers.find(c => c.rrNumber === bill.rrNumber);
+      // Find the customer for this bill using both customerId and rrNumber
+      const customer = customers.find(c => 
+        c._id === bill.customerId && c.rrNumber === bill.rrNumber
+      );
       return {
         ...bill,
-        customerName: customer?.name || 'Unknown',
-        customerEmail: customer?.email || 'N/A',
-        username: customer?.username || 'N/A'
+        customerName: customer ? customer.name : 'Unknown Customer',
+        customerEmail: customer ? customer.email : 'N/A'
       };
     });
 
-  const handleClearBills = () => {
-    if (window.confirm('Are you sure you want to clear all bills? This action cannot be undone.')) {
-      clearAllBills();
-    }
-  };
-
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className="mb-8 flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Admin Dashboard</h1>
-          <p className="text-gray-600">Monitor and manage water billing system</p>
-        </div>
-        <button
-          onClick={handleClearBills}
-          className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-        >
-          <Trash2 className="h-4 w-4 mr-2" />
-          Clear All Bills
-        </button>
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold text-gray-900">Admin Dashboard</h1>
+        <p className="text-gray-600">Monitor and manage water billing system</p>
       </div>
       
       {/* Stats Cards */}
@@ -119,8 +106,14 @@ const AdminDashboard: React.FC = () => {
       
       {/* Recent Payment Activity */}
       <div className="bg-white rounded-lg shadow-md overflow-hidden mb-8">
-        <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
+        <div className="px-6 py-4 bg-gray-50 border-b border-gray-200 flex justify-between items-center">
           <h2 className="text-lg font-semibold text-gray-800">Recent Payment Activity</h2>
+          <button
+            onClick={clearAllBills}
+            className="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+          >
+            Clear All Bills
+          </button>
         </div>
         
         <div className="overflow-x-auto">
@@ -137,28 +130,26 @@ const AdminDashboard: React.FC = () => {
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {recentPayments.length > 0 ? (
-                recentPayments.map((bill) => (
-                  <tr key={bill.id}>
+                recentPayments.map((payment) => (
+                  <tr key={payment.id}>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <div className="flex-shrink-0 h-8 w-8 bg-blue-100 rounded-full flex items-center justify-center">
                           <Users className="h-4 w-4 text-blue-600" />
                         </div>
                         <div className="ml-3">
-                          <div className="text-sm font-medium text-gray-900">
-                            {bill.customerName} ({bill.username})
-                          </div>
-                          <div className="text-xs text-gray-500">{bill.customerEmail}</div>
+                          <div className="text-sm font-medium text-gray-900">{payment.customerName}</div>
+                          <div className="text-xs text-gray-500">{payment.customerEmail}</div>
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{bill.rrNumber}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{bill.unitsConsumed}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{payment.rrNumber}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{payment.unitsConsumed}</td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">₹{bill.amount.toFixed(2)}</div>
+                      <div className="text-sm text-gray-900">₹{payment.amount.toFixed(2)}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {new Date(bill.date).toLocaleDateString()}
+                      {new Date(payment.date).toLocaleDateString()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
