@@ -52,31 +52,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const login = async (email: string, password: string, role: 'customer' | 'admin' = 'customer'): Promise<boolean> => {
     try {
-      // Hardcoded admin credentials check
-      if (role === 'admin') {
-        if (email === 'admin@waterbill.com' && password === 'admin@123') {
-          const adminUser = {
-            _id: 'admin-1',
-            name: 'Administrator',
-            email: 'admin@waterbill.com',
-            role: 'admin',
-            username: 'admin',
-            rrNumber: 'admin-rr',
-            meterNumber: 'admin-meter'
-          };
-          handleAuthResponse({ user: adminUser, token: 'admin-token' });
-          toast.success('Admin login successful!');
-          return true;
-        } else {
-          toast.error('Invalid admin credentials');
-          return false;
-        }
-      }
-
-      // Regular customer login through API
+      // Use the API for both admin and customer login
       const response = await api.login({ email, password, role });
       handleAuthResponse(response);
-      toast.success('Login successful!');
+      toast.success(`${role === 'admin' ? 'Admin' : 'Customer'} login successful!`);
       return true;
     } catch (error: any) {
       toast.error(error.message || 'Login failed');

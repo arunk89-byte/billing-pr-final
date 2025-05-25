@@ -39,102 +39,10 @@ export interface Tariff {
 }
 
 // Mock customers
-export const customers: Customer[] = [
-  {
-    id: '1',
-    name: 'John Doe',
-    email: 'john@example.com',
-    rrNumber: 'RR001',
-    meterNumber: 'M001',
-    username: 'johndoe',
-    password: 'password'
-  },
-  {
-    id: '2',
-    name: 'Jane Smith',
-    email: 'jane@example.com',
-    rrNumber: 'RR002',
-    meterNumber: 'M002',
-    username: 'janesmith',
-    password: 'password'
-  }
-];
+export const customers: Customer[] = [];
 
-// Mock bills
-export const bills: Bill[] = [
-  {
-    id: '1',
-    customerId: '1',
-    rrNumber: 'RR001',
-    previousReading: 100,
-    currentReading: 150,
-    unitsConsumed: 50,
-    amount: 350,
-    dueDate: '2025-04-30',
-    status: 'unpaid',
-    date: '2025-04-01'
-  },
-  {
-    id: '2',
-    customerId: '1',
-    rrNumber: 'RR001',
-    previousReading: 50,
-    currentReading: 100,
-    unitsConsumed: 50,
-    amount: 350,
-    dueDate: '2025-03-30',
-    status: 'paid',
-    date: '2025-03-01'
-  },
-  {
-    id: '3',
-    customerId: '2',
-    rrNumber: 'RR002',
-    previousReading: 200,
-    currentReading: 275,
-    unitsConsumed: 75,
-    amount: 525,
-    dueDate: '2025-04-30',
-    status: 'paid',
-    date: '2025-04-15'
-  },
-  {
-    id: '4',
-    customerId: '1',
-    rrNumber: 'RR001',
-    previousReading: 150,
-    currentReading: 200,
-    unitsConsumed: 50,
-    amount: 350,
-    dueDate: '2025-05-30',
-    status: 'paid',
-    date: '2025-05-01'
-  },
-  {
-    id: '5',
-    customerId: '2',
-    rrNumber: 'RR002',
-    previousReading: 275,
-    currentReading: 325,
-    unitsConsumed: 50,
-    amount: 350,
-    dueDate: '2025-05-30',
-    status: 'paid',
-    date: '2025-05-10'
-  },
-  {
-    id: '6',
-    customerId: '1',
-    rrNumber: 'RR001',
-    previousReading: 200,
-    currentReading: 250,
-    unitsConsumed: 50,
-    amount: 350,
-    dueDate: '2025-06-30',
-    status: 'paid',
-    date: '2025-06-01'
-  }
-];
+// Mock bills - frozen empty array to prevent modifications
+export const bills: readonly Bill[] = Object.freeze([]);
 
 // Mock admins
 export const admins: Admin[] = [

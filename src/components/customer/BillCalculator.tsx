@@ -1,16 +1,29 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Calculator, Check, AlertCircle } from 'lucide-react';
 import { useBilling } from '../../context/BillingContext';
 import { Bill } from '../../data/mockData';
+import { useAuth } from '../../context/AuthContext';
 
 const BillCalculator: React.FC = () => {
+  const { currentUser } = useAuth();
   const [previousReading, setPreviousReading] = useState<string>('');
   const [currentReading, setCurrentReading] = useState<string>('');
   const [calculatedBill, setCalculatedBill] = useState<Bill | null>(null);
   const [error, setError] = useState<string>('');
-  const { calculateBill, getCurrentTariff } = useBilling();
+  const { calculateBill, getCurrentTariff, getCustomerBills } = useBilling();
   
   const tariff = getCurrentTariff();
+
+  // Get the last reading from customer's bills
+  useEffect(() => {
+    const customerBills = getCustomerBills();
+    if (customerBills.length > 0) {
+      // Sort bills by date in descending order and get the most recent one
+      const sortedBills = customerBills.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      const lastBill = sortedBills[0];
+      setPreviousReading(lastBill.currentReading.toString());
+    }
+  }, [getCustomerBills]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

@@ -10,6 +10,7 @@ interface BillingContextType {
   getAllBills: () => Bill[];
   getPaidBills: () => Bill[];
   getCurrentTariff: () => { ratePerUnit: number; minimumCharge: number };
+  clearAllBills: () => void;
 }
 
 const BillingContext = createContext<BillingContextType | undefined>(undefined);
@@ -17,16 +18,52 @@ const BillingContext = createContext<BillingContextType | undefined>(undefined);
 export const BillingProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const { currentUser, userType } = useAuth();
   
-  // Initialize state from localStorage or use initial bills
+  // Initialize state from localStorage only, not from mock data
   const [localBills, setLocalBills] = useState<Bill[]>(() => {
-    const savedBills = localStorage.getItem('bills');
-    return savedBills ? JSON.parse(savedBills) : initialBills;
+    try {
+      const savedBills = localStorage.getItem('bills');
+      return savedBills ? JSON.parse(savedBills) : [];
+    } catch (error) {
+      console.error('Error loading bills from localStorage:', error);
+      return [];
+    }
   });
 
   // Save bills to localStorage whenever they change
   useEffect(() => {
-    localStorage.setItem('bills', JSON.stringify(localBills));
+    try {
+      localStorage.setItem('bills', JSON.stringify(localBills));
+    } catch (error) {
+      console.error('Error saving bills to localStorage:', error);
+    }
   }, [localBills]);
+
+  const clearAllBills = () => {
+    try {
+      // Clear all bills from state
+      setLocalBills([]);
+      
+      // Clear all storage
+      localStorage.clear(); // Clear all localStorage
+      sessionStorage.clear(); // Clear all sessionStorage
+      
+      // Clear any cached data
+      if (caches) {
+        // Clear all cache storage
+        caches.keys().then(keys => {
+          keys.forEach(key => caches.delete(key));
+        });
+      }
+      
+      // Force a complete page reload to reset all state
+      window.location.href = '/admin/dashboard';
+      
+      toast.success('All bills have been cleared successfully');
+    } catch (error) {
+      console.error('Error clearing bills:', error);
+      toast.error('Failed to clear bills. Please try again.');
+    }
+  };
 
   const getCurrentTariff = () => {
     return {
@@ -41,6 +78,12 @@ export const BillingProvider: React.FC<{ children: ReactNode }> = ({ children })
       return null;
     }
 
+    // Ensure we have the required customer information
+    if (!currentUser._id || !currentUser.rrNumber) {
+      toast.error('Missing required customer information');
+      return null;
+    }
+
     // Calculate units consumed
     const unitsConsumed = Math.max(0, currentReading - previousReading);
     
@@ -50,24 +93,29 @@ export const BillingProvider: React.FC<{ children: ReactNode }> = ({ children })
     // Calculate amount
     const calculatedAmount = Math.max(minimumCharge, unitsConsumed * ratePerUnit);
 
-    // Create new bill
+    // Create new bill with strict customer identification
     const newBill: Bill = {
-      id: Date.now().toString(), // Use timestamp for unique ID
-      customerId: currentUser.id,
-      rrNumber: (currentUser as any).rrNumber,
+      id: Date.now().toString(),
+      customerId: currentUser._id,
+      rrNumber: currentUser.rrNumber,
       previousReading,
       currentReading,
       unitsConsumed,
       amount: calculatedAmount,
-      dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 30 days from now
+      dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
       status: 'unpaid',
       date: new Date().toISOString().split('T')[0]
     };
 
-    // Add to bills
-    setLocalBills(prevBills => [...prevBills, newBill]);
-    toast.success('Bill calculated successfully!');
-    return newBill;
+    // Verify the bill belongs to the current user before adding
+    if (newBill.customerId === currentUser._id && newBill.rrNumber === currentUser.rrNumber) {
+      setLocalBills(prevBills => [...prevBills, newBill]);
+      toast.success('Bill calculated successfully!');
+      return newBill;
+    } else {
+      toast.error('Error creating bill: Customer information mismatch');
+      return null;
+    }
   };
 
   const payBill = (billId: string) => {
@@ -82,10 +130,18 @@ export const BillingProvider: React.FC<{ children: ReactNode }> = ({ children })
   };
 
   const getCustomerBills = (): Bill[] => {
-    if (userType !== 'customer' || !currentUser) {
+    if (!currentUser) {
       return [];
     }
-    return localBills.filter((bill) => bill.customerId === currentUser.id);
+    
+    // Strict filtering - only return bills that exactly match both customerId and rrNumber
+    return localBills.filter((bill) => {
+      const isCustomerIdMatch = bill.customerId === currentUser._id;
+      const isRRNumberMatch = bill.rrNumber === currentUser.rrNumber;
+      
+      // Only return bills where both customerId and rrNumber match
+      return isCustomerIdMatch && isRRNumberMatch;
+    });
   };
 
   const getAllBills = (): Bill[] => {
@@ -104,7 +160,8 @@ export const BillingProvider: React.FC<{ children: ReactNode }> = ({ children })
         getCustomerBills,
         getAllBills,
         getPaidBills,
-        getCurrentTariff
+        getCurrentTariff,
+        clearAllBills
       }}
     >
       {children}
