@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { CreditCard, CheckCircle, ArrowLeft, AlertCircle } from 'lucide-react';
+import { CreditCard, CheckCircle, ArrowLeft, AlertCircle, Smartphone } from 'lucide-react';
 import { useBilling } from '../../context/BillingContext';
 import { Bill } from '../../data/mockData';
 
@@ -9,7 +9,10 @@ interface PaymentFormData {
   cardHolder: string;
   expiryDate: string;
   cvv: string;
+  upiId: string;
 }
+
+type PaymentMethod = 'card' | 'upi';
 
 const PaymentPage: React.FC = () => {
   const { billId } = useParams<{ billId: string }>();
@@ -20,12 +23,14 @@ const PaymentPage: React.FC = () => {
   const [paymentSuccess, setPaymentSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('card');
   
   const [paymentData, setPaymentData] = useState<PaymentFormData>({
     cardNumber: '',
     cardHolder: '',
     expiryDate: '',
-    cvv: ''
+    cvv: '',
+    upiId: 'arunkumbar6@ybl'
   });
 
   useEffect(() => {
@@ -41,24 +46,31 @@ const PaymentPage: React.FC = () => {
   }, [billId, navigate, getAllBills]);
 
   const validateForm = (): boolean => {
-    if (!paymentData.cardNumber.replace(/\s/g, '').match(/^\d{16}$/)) {
-      setError('Please enter a valid 16-digit card number');
-      return false;
-    }
-    
-    if (!paymentData.cardHolder.trim()) {
-      setError('Please enter the card holder name');
-      return false;
-    }
-    
-    if (!paymentData.expiryDate.match(/^(0[1-9]|1[0-2])\/([0-9]{2})$/)) {
-      setError('Please enter a valid expiry date (MM/YY)');
-      return false;
-    }
-    
-    if (!paymentData.cvv.match(/^\d{3}$/)) {
-      setError('Please enter a valid 3-digit CVV');
-      return false;
+    if (paymentMethod === 'card') {
+      if (!paymentData.cardNumber.replace(/\s/g, '').match(/^\d{16}$/)) {
+        setError('Please enter a valid 16-digit card number');
+        return false;
+      }
+      
+      if (!paymentData.cardHolder.trim()) {
+        setError('Please enter the card holder name');
+        return false;
+      }
+      
+      if (!paymentData.expiryDate.match(/^(0[1-9]|1[0-2])\/([0-9]{2})$/)) {
+        setError('Please enter a valid expiry date (MM/YY)');
+        return false;
+      }
+      
+      if (!paymentData.cvv.match(/^\d{3}$/)) {
+        setError('Please enter a valid 3-digit CVV');
+        return false;
+      }
+    } else if (paymentMethod === 'upi') {
+      if (!paymentData.upiId.match(/^[a-zA-Z0-9._-]+@[a-zA-Z0-9]+$/)) {
+        setError('Please enter a valid UPI ID');
+        return false;
+      }
     }
     
     return true;
@@ -163,71 +175,128 @@ const PaymentPage: React.FC = () => {
                 </dl>
               </div>
               
-              <form onSubmit={handlePayment} className="space-y-6">
-                <div>
-                  <label htmlFor="cardNumber" className="block text-sm font-medium text-gray-700">
-                    Card Number
-                  </label>
-                  <input
-                    type="text"
-                    id="cardNumber"
-                    name="cardNumber"
-                    value={paymentData.cardNumber}
-                    onChange={handleInputChange}
-                    maxLength={19}
-                    placeholder="1234 5678 9012 3456"
-                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="cardHolder" className="block text-sm font-medium text-gray-700">
-                    Card Holder Name
-                  </label>
-                  <input
-                    type="text"
-                    id="cardHolder"
-                    name="cardHolder"
-                    value={paymentData.cardHolder}
-                    onChange={handleInputChange}
-                    placeholder="JOHN DOE"
-                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                  />
-                </div>
-
+              {/* Payment Method Selection */}
+              <div className="mb-6">
+                <label className="text-sm font-medium text-gray-700 block mb-3">
+                  Select Payment Method
+                </label>
                 <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label htmlFor="expiryDate" className="block text-sm font-medium text-gray-700">
-                      Expiry Date
-                    </label>
-                    <input
-                      type="text"
-                      id="expiryDate"
-                      name="expiryDate"
-                      value={paymentData.expiryDate}
-                      onChange={handleInputChange}
-                      placeholder="MM/YY"
-                      maxLength={5}
-                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                    />
-                  </div>
-
-                  <div>
-                    <label htmlFor="cvv" className="block text-sm font-medium text-gray-700">
-                      CVV
-                    </label>
-                    <input
-                      type="password"
-                      id="cvv"
-                      name="cvv"
-                      value={paymentData.cvv}
-                      onChange={handleInputChange}
-                      placeholder="123"
-                      maxLength={3}
-                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                    />
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod('card')}
+                    className={`p-4 border rounded-lg flex items-center justify-center gap-2 ${
+                      paymentMethod === 'card'
+                        ? 'border-blue-500 bg-blue-50 text-blue-700'
+                        : 'border-gray-300 hover:border-gray-400'
+                    }`}
+                  >
+                    <CreditCard className="h-5 w-5" />
+                    <span>Card Payment</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod('upi')}
+                    className={`p-4 border rounded-lg flex items-center justify-center gap-2 ${
+                      paymentMethod === 'upi'
+                        ? 'border-blue-500 bg-blue-50 text-blue-700'
+                        : 'border-gray-300 hover:border-gray-400'
+                    }`}
+                  >
+                    <Smartphone className="h-5 w-5" />
+                    <span>UPI Payment</span>
+                  </button>
                 </div>
+              </div>
+              
+              <form onSubmit={handlePayment} className="space-y-6">
+                {paymentMethod === 'card' ? (
+                  <>
+                    <div>
+                      <label htmlFor="cardNumber" className="block text-sm font-medium text-gray-700">
+                        Card Number
+                      </label>
+                      <input
+                        type="text"
+                        id="cardNumber"
+                        name="cardNumber"
+                        value={paymentData.cardNumber}
+                        onChange={handleInputChange}
+                        maxLength={19}
+                        placeholder="1234 5678 9012 3456"
+                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                      />
+                    </div>
+
+                    <div>
+                      <label htmlFor="cardHolder" className="block text-sm font-medium text-gray-700">
+                        Card Holder Name
+                      </label>
+                      <input
+                        type="text"
+                        id="cardHolder"
+                        name="cardHolder"
+                        value={paymentData.cardHolder}
+                        onChange={handleInputChange}
+                        placeholder="JOHN DOE"
+                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label htmlFor="expiryDate" className="block text-sm font-medium text-gray-700">
+                          Expiry Date
+                        </label>
+                        <input
+                          type="text"
+                          id="expiryDate"
+                          name="expiryDate"
+                          value={paymentData.expiryDate}
+                          onChange={handleInputChange}
+                          placeholder="MM/YY"
+                          maxLength={5}
+                          className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                        />
+                      </div>
+
+                      <div>
+                        <label htmlFor="cvv" className="block text-sm font-medium text-gray-700">
+                          CVV
+                        </label>
+                        <input
+                          type="password"
+                          id="cvv"
+                          name="cvv"
+                          value={paymentData.cvv}
+                          onChange={handleInputChange}
+                          placeholder="123"
+                          maxLength={3}
+                          className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                        />
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <div>
+                    <label htmlFor="upiId" className="block text-sm font-medium text-gray-700">
+                      UPI ID
+                    </label>
+                    <div className="mt-1 flex rounded-md shadow-sm">
+                      <input
+                        type="text"
+                        id="upiId"
+                        name="upiId"
+                        value={paymentData.upiId}
+                        onChange={handleInputChange}
+                        readOnly
+                        className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 bg-gray-50 text-gray-700 sm:text-sm"
+                      />
+                    </div>
+                    <p className="mt-2 text-sm text-gray-500">
+                      Please scan the QR code or pay to the UPI ID shown above
+                    </p>
+                  </div>
+                )}
 
                 {error && (
                   <div className="rounded-md bg-red-50 p-4">
